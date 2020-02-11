@@ -1,0 +1,13 @@
+.atom/
+.dart_tool/
+.idea
+.vscode/
+.packages
+.pub/
+android/
+build/
+ios/
+.packages
+.flutter-plugins
+pubspec.lock
+/.flutter-plugins-dependencies
