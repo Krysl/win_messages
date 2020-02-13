@@ -25,7 +25,8 @@
 #include <sstream>
 #include <codecvt>
 
-namespace {
+namespace
+{
 
 using flutter::EncodableList;
 using flutter::EncodableMap;
@@ -35,8 +36,9 @@ using flutter::EncodableValue;
 const char kChannelName[] = "flutter/win_messages";
 const char kSendMessageMethod[] = "SendMessage";
 
-class WinMessagesPlugin : public flutter::Plugin {
- public:
+class WinMessagesPlugin : public flutter::Plugin
+{
+public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
   // Creates a plugin that communicates on the given channel.
@@ -44,7 +46,10 @@ class WinMessagesPlugin : public flutter::Plugin {
 
   virtual ~WinMessagesPlugin();
 
- private:
+  UINT32 toUINT32(std::vector<uint8_t> val);
+  UINT64 toUINT64(std::vector<uint8_t> val);
+
+private:
   // Called when a method is called on the plugin channel;
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
@@ -56,7 +61,8 @@ class WinMessagesPlugin : public flutter::Plugin {
 
 // static
 void WinMessagesPlugin::RegisterWithRegistrar(
-    flutter::PluginRegistrarWindows *registrar) {
+    flutter::PluginRegistrarWindows *registrar)
+{
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
           registrar->messenger(), kChannelName,
@@ -77,29 +83,66 @@ WinMessagesPlugin::WinMessagesPlugin(flutter::PluginRegistrarWindows *registrar)
 
 WinMessagesPlugin::~WinMessagesPlugin(){};
 
+UINT32 WinMessagesPlugin::toUINT32(std::vector<uint8_t> val)
+{
+    UINT ret = 0;
+    assert(val.size() == 4);
+    for (int i = 0; i < 4; i++)
+    {
+        ret += val[i] << (i << 3);
+    }
+    return ret;
+}
+
+
+UINT64 WinMessagesPlugin::toUINT64(std::vector<uint8_t> val)
+{
+    UINT ret = 0;
+    assert(val.size() == 8);
+    for (int i = 0; i < 8; i++)
+    {
+        ret += val[i] << (i << 3);
+    }
+    return ret;
+}
+
 void WinMessagesPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
-    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare(kSendMessageMethod) == 0) {
-      if (!method_call.arguments() || !method_call.arguments()->IsList() ||
-          method_call.arguments()->ListValue().size() != 1) {
-          result->Error("Bad arguments", "Expected 1-element list");
-          return;
-      }
-      const auto& args_list = method_call.arguments()->ListValue();
-      unsigned int msg = static_cast<unsigned int>(args_list[0].IntValue());
-
-      SendMessage(GetParent(this->registrar_->GetView()->GetNativeWindow()), msg, NULL, NULL);
-      //SendMessage(HWND_BROADCAST, msg, NULL, NULL);//导致计算机关机消息
-  } else {
+    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
+{
+  if (method_call.method_name().compare(kSendMessageMethod) == 0)
+  {
+    if (!method_call.arguments() || !method_call.arguments()->IsList() ||
+        method_call.arguments()->ListValue().size() != 3)
+    {
+      result->Error("Bad arguments", "Expected 3-element list");
+      return;
+    }
+    const auto &args_list = method_call.arguments()->ListValue();
+    UINT msg = static_cast<UINT>(toUINT32(args_list[0].ByteListValue()));
+    WPARAM wParam = NULL;
+    if (args_list[1].IsByteList())
+    {
+        wParam = static_cast<WPARAM>(toUINT64(args_list[1].ByteListValue()));;
+    }
+    LPARAM lParam = NULL;
+    if (args_list[2].IsByteList())
+    {
+        static_cast<LPARAM>(toUINT64(args_list[2].ByteListValue()));
+    }
+    SendMessage(GetParent(this->registrar_->GetView()->GetNativeWindow()), msg, wParam, lParam);
+  }
+  else
+  {
     result->NotImplemented();
   }
 }
 
-}  // namespace
+} // namespace
 
 void WinMessagesPluginRegisterWithRegistrar(
-    FlutterDesktopPluginRegistrarRef registrar) {
+    FlutterDesktopPluginRegistrarRef registrar)
+{
   // The plugin registrar owns the plugin, registered callbacks, etc., so must
   // remain valid for the life of the application.
   static auto *plugin_registrar =

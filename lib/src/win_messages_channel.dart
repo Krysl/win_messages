@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/services.dart';
+
+import 'win_type.dart';
 
 /// The name of the plugin's platform channel.
 const String _winMessagesChannelName = 'flutter/win_messages';
@@ -32,7 +32,15 @@ class WinMessagesChannel {
   /// The static instance of the menu channel.
   static final WinMessagesChannel instance = new WinMessagesChannel._();
 
-  void sendWinMessage(int msg) async {
-    await _platformChannel.invokeMethod(_getWindowInfoMethod, [msg]);
+  /// this use windows's API:
+  /// LRESULT SendMessage(
+  ///   HWND   hWnd,
+  ///   UINT   Msg,
+  ///   WPARAM wParam,
+  ///   LPARAM lParam
+  /// );
+  void sendWinMessage(UINT msg, [WPARAM wParam, LPARAM lParam]) async {
+    await _platformChannel.invokeMethod(_getWindowInfoMethod,
+        [msg.toUint8List(), wParam?.toUint8List(), lParam?.toUint8List()]);
   }
 }
