@@ -23,18 +23,19 @@ import 'titlebar_widgets.dart';
 void main() {
   // See https://github.com/flutter/flutter/wiki/Desktop-shells#target-platform-override
   debugDefaultTargetPlatformOverride = TargetPlatform.fuchsia;
-
   runApp(new MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  final String title = 'Win_messages Demo';
   @override
   Widget build(BuildContext context) {
-    setWindowTitle('1234');
+    setWindowTitle(title);
     // setWindowFrame(Rect.fromLTWH(100.0, 200.0, 800.0, 600.0));
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: title,
       themeMode: ThemeMode.dark,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue,
         // See https://github.com/flutter/flutter/wiki/Desktop-shells#fonts
@@ -43,7 +44,7 @@ class MyApp extends StatelessWidget {
           minWidth: 5,
         ),
       ),
-      home: MyHomePage(title: 'Title'),
+      home: MyHomePage(title: title),
     );
   }
 }
