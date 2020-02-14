@@ -128,7 +128,7 @@ void WinMessagesPlugin::HandleMethodCall(
     LPARAM lParam = NULL;
     if (args_list[2].IsByteList())
     {
-        static_cast<LPARAM>(toUINT64(args_list[2].ByteListValue()));
+        lParam = static_cast<LPARAM>(toUINT64(args_list[2].ByteListValue()));
     }
     SendMessage(GetParent(this->registrar_->GetView()->GetNativeWindow()), msg, wParam, lParam);
   }
