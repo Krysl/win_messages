@@ -17,7 +17,7 @@ import 'package:flutter/services.dart';
 import 'win_type.dart';
 
 /// The name of the plugin's platform channel.
-const String _winMessagesChannelName = 'flutter/win_messages';
+const String _winMessagesChannelName = 'win_messages';
 
 const String _getWindowInfoMethod = 'SendMessage';
 

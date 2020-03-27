@@ -13,7 +13,8 @@
 // limitations under the License.
 #include "window_size_plugin.h"
 
-#include <ShellScalingApi.h>
+// windows.h must be imported before VersionHelpers.h or it will break
+// compilation.
 #include <windows.h>
 
 #include <VersionHelpers.h>
@@ -21,9 +22,11 @@
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
+#include <flutter_windows.h>
+
+#include <codecvt>
 #include <memory>
 #include <sstream>
-#include <codecvt>
 
 namespace {
 
@@ -49,8 +52,10 @@ EncodableValue GetPlatformChannelRepresentationForRect(const RECT &rect) {
   return EncodableValue(EncodableList{
       EncodableValue(static_cast<double>(rect.left)),
       EncodableValue(static_cast<double>(rect.top)),
-      EncodableValue(static_cast<double>(rect.right - rect.left)),
-      EncodableValue(static_cast<double>(rect.bottom - rect.top)),
+      EncodableValue(static_cast<double>(rect.right) -
+                     static_cast<double>(rect.left)),
+      EncodableValue(static_cast<double>(rect.bottom) -
+                     static_cast<double>(rect.top)),
   });
 }
 
@@ -64,9 +69,8 @@ EncodableValue GetPlatformChannelRepresentationForMonitor(HMONITOR monitor) {
   MONITORINFO info;
   info.cbSize = sizeof(MONITORINFO);
   GetMonitorInfo(monitor, &info);
-  UINT dpi_x, dpi_y;
-  GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
-  double scale_factor = dpi_x / kBaseDpi;
+  UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  double scale_factor = dpi / kBaseDpi;
   return EncodableValue(EncodableMap{
       {EncodableValue(kFrameKey),
        GetPlatformChannelRepresentationForRect(info.rcMonitor)},
@@ -93,8 +97,7 @@ EncodableValue GetPlatformChannelRepresentationForWindow(HWND window) {
   RECT frame;
   GetWindowRect(window, &frame);
   HMONITOR window_monitor = MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY);
-  // TODO: Support fallback for systems older than Windows 10(1607).
-  double scale_factor = GetDpiForWindow(window) / kBaseDpi;
+  double scale_factor = FlutterDesktopGetDpiForHWND(window) / kBaseDpi;
 
   return EncodableValue(EncodableMap{
       {EncodableValue(kFrameKey),
@@ -156,7 +159,7 @@ void WindowSizePlugin::HandleMethodCall(
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
   if (method_call.method_name().compare(kGetScreenListMethod) == 0) {
     EncodableValue screens(EncodableValue::Type::kList);
-    EnumDisplayMonitors(NULL, NULL, MonitorRepresentationEnumProc,
+    EnumDisplayMonitors(nullptr, nullptr, MonitorRepresentationEnumProc,
                         reinterpret_cast<LPARAM>(&screens));
     result->Success(&screens);
   } else if (method_call.method_name().compare(kGetWindowInfoMethod) == 0) {
@@ -176,7 +179,7 @@ void WindowSizePlugin::HandleMethodCall(
     int y = static_cast<int>(frame_list[1].DoubleValue());
     int width = static_cast<int>(frame_list[2].DoubleValue());
     int height = static_cast<int>(frame_list[3].DoubleValue());
-    SetWindowPos(GetRootWindow(registrar_->GetView()), NULL, x, y, width,
+    SetWindowPos(GetRootWindow(registrar_->GetView()), nullptr, x, y, width,
                  height, SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     result->Success();
   } else if (method_call.method_name().compare(kSetWindowTitleMethod) == 0) {
@@ -185,8 +188,9 @@ void WindowSizePlugin::HandleMethodCall(
       return;
     }
     const auto &title = method_call.arguments()->StringValue();
-    std::wstring wstr = std::wstring_convert<
-        std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}.from_bytes(title);
+    std::wstring wstr =
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>, wchar_t>{}
+            .from_bytes(title);
     SetWindowText(GetRootWindow(registrar_->GetView()), wstr.c_str());
     result->Success();
   } else {

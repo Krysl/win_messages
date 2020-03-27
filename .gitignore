@@ -4,10 +4,11 @@
 .vscode/
 .packages
 .pub/
+.vs
 android/
 build/
 ios/
 .packages
 .flutter-plugins
 pubspec.lock
-/.flutter-plugins-dependencies
+.flutter-plugins-dependencies
