@@ -1,10 +1,9 @@
 #include "win32_window.h"
-#include <Dwmapi.h>
 
+#include <Dwmapi.h>
 #include <flutter_windows.h>
 
 #include "resource.h"
-
 
 #define CUSTOM_CLOSE_BUTTON
 namespace {
@@ -60,18 +59,13 @@ bool Win32Window::CreateAndShow(const std::wstring &title, const Point &origin,
 #ifndef CUSTOM_CLOSE_BUTTON
   dwStyle = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
 #else
-  dwStyle = (WS_POPUP |
-             WS_THICKFRAME |
-             WS_VISIBLE) &
-            ~WS_CAPTION;
+  dwStyle = (WS_POPUP | WS_THICKFRAME | WS_VISIBLE) & ~WS_CAPTION;
 #endif
   HWND window = CreateWindow(
-      window_class.lpszClassName, title.c_str(),
-      dwStyle, 
-	  Scale(origin.x, scale_factor),
-      Scale(origin.y, scale_factor), Scale(size.width, scale_factor),
-      Scale(size.height, scale_factor), nullptr, nullptr,
-      window_class.hInstance, this);
+      window_class.lpszClassName, title.c_str(), dwStyle,
+      Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
+      Scale(size.width, scale_factor), Scale(size.height, scale_factor),
+      nullptr, nullptr, window_class.hInstance, this);
   return window != nullptr;
 }
 
@@ -123,26 +117,25 @@ Win32Window::MessageHandler(HWND hwnd, UINT const message, WPARAM const wparam,
 
   switch (message) {
 #ifdef CUSTOM_CLOSE_BUTTON
-  case WM_CREATE:
-  {
-    //find border thickness
-    SetRectEmpty(&border_thickness);
-    if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_THICKFRAME)
-    {
-      AdjustWindowRectEx(&border_thickness, GetWindowLongPtr(hwnd, GWL_STYLE) & ~WS_CAPTION, FALSE, NULL);
-      border_thickness.left *= -1;
-      border_thickness.top *= -1;
-    }
-    else if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_BORDER)
-    {
-      SetRect(&border_thickness, 1, 1, 1, 1);
-    }
+    case WM_CREATE: {
+      // find border thickness
+      SetRectEmpty(&border_thickness);
+      if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_THICKFRAME) {
+        AdjustWindowRectEx(&border_thickness,
+                           GetWindowLongPtr(hwnd, GWL_STYLE) & ~WS_CAPTION,
+                           FALSE, NULL);
+        border_thickness.left *= -1;
+        border_thickness.top *= -1;
+      } else if (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_BORDER) {
+        SetRect(&border_thickness, 1, 1, 1, 1);
+      }
 
-    MARGINS margins = {0};
-    DwmExtendFrameIntoClientArea(hwnd, &margins);
-    SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
-    break;
-  }
+      MARGINS margins = {0};
+      DwmExtendFrameIntoClientArea(hwnd, &margins);
+      SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                   SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+      break;
+    }
 #endif
     case WM_DESTROY:
       window_handle_ = nullptr;
@@ -175,36 +168,35 @@ Win32Window::MessageHandler(HWND hwnd, UINT const message, WPARAM const wparam,
       }
       return 0;
 #ifdef CUSTOM_CLOSE_BUTTON
-  case WM_NCACTIVATE:
-    return 0;
-  case WM_NCCALCSIZE:
-    if (lparam)
-    {
-      NCCALCSIZE_PARAMS *sz = (NCCALCSIZE_PARAMS *)lparam;
-      // sz->rgrc[0].top = 1;
-      sz->rgrc[0].left += border_thickness.left;
-      sz->rgrc[0].right -= border_thickness.right;
-      sz->rgrc[0].bottom -= border_thickness.bottom;
+    case WM_NCACTIVATE:
       return 0;
+    case WM_NCCALCSIZE:
+      if (lparam) {
+        NCCALCSIZE_PARAMS *sz = (NCCALCSIZE_PARAMS *)lparam;
+        // sz->rgrc[0].top = 1;
+        sz->rgrc[0].left += border_thickness.left;
+        sz->rgrc[0].right -= border_thickness.right;
+        sz->rgrc[0].bottom -= border_thickness.bottom;
+        return 0;
+      }
+    case WM_NCHITTEST: {
+      // do default processing, but allow resizing from top-border
+      LRESULT result = DefWindowProc(hwnd, message, wparam, lparam);
+      if (result == HTCLIENT) {
+        POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        ScreenToClient(hwnd, &pt);
+        if (pt.y < border_thickness.top) return HTTOP;
+      }
+      return result;
     }
-  case WM_NCHITTEST:
-  {
-    //do default processing, but allow resizing from top-border
-    LRESULT result = DefWindowProc(hwnd, message, wparam, lparam);
-    if (result == HTCLIENT)
-    {
-      POINT pt = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
-      ScreenToClient(hwnd, &pt);
-      if (pt.y < border_thickness.top)
-        return HTTOP;
-    }
-    return result;
-  }
 #endif
     // Messages that are directly forwarded to embedding.
     case WM_FONTCHANGE:
       SendMessage(child_content_, WM_FONTCHANGE, NULL, NULL);
       return 0;
+    case WM_SYSCOMMAND:
+      SendMessage(child_content_, message, wparam, lparam);
+      break;
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);
